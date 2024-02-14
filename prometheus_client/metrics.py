@@ -595,7 +595,9 @@ class Histogram(MetricWrapperBase):
                  registry: Optional[CollectorRegistry] = REGISTRY,
                  _labelvalues: Optional[Sequence[str]] = None,
                  buckets: Sequence[Union[float, str]] = DEFAULT_BUCKETS,
+                 cumulative: bool = True,
                  ):
+        self._cumulative = cumulative
         self._prepare_buckets(buckets)
         super().__init__(
             name=name,
@@ -608,6 +610,7 @@ class Histogram(MetricWrapperBase):
             _labelvalues=_labelvalues,
         )
         self._kwargs['buckets'] = buckets
+        self._kwargs['cumulative'] = cumulative
 
     def _prepare_buckets(self, source_buckets: Sequence[Union[float, str]]) -> None:
         buckets = [float(b) for b in source_buckets]
@@ -668,7 +671,10 @@ class Histogram(MetricWrapperBase):
         acc = 0.0
         for i, bound in enumerate(self._upper_bounds):
             acc += self._buckets[i].get()
-            samples.append(Sample('_bucket', {'le': floatToGoString(bound)}, acc, None, self._buckets[i].get_exemplar()))
+            if self._cumulative:
+                samples.append(Sample('_bucket', {'le': floatToGoString(bound)}, acc, None, self._buckets[i].get_exemplar()))
+            else:
+                samples.append(Sample('_bucket', {'le': floatToGoString(bound)}, self._buckets[i].get(), None, self._buckets[i].get_exemplar()))
         samples.append(Sample('_count', {}, acc, None, None))
         if self._upper_bounds[0] >= 0:
             samples.append(Sample('_sum', {}, self._sum.get(), None, None))
